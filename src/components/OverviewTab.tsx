@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Listing, ListingStatus } from "../types";
+import { getFallbackImage } from "../lib/imageUtils";
 import { 
   Home, 
   Video, 
@@ -22,44 +23,40 @@ interface OverviewTabProps {
 }
 
 export default function OverviewTab({ listings, onTabChange, onSelectListingForScript }: OverviewTabProps) {
-  const [todos, setTodos] = useState<{ id: string; text: string; done: boolean; category: string }[]>(() => {
-    const saved = localStorage.getItem("bge_todos");
+  const [comments, setComments] = useState<{ id: string; text: string; author: string; timestamp: number }[]>(() => {
+    const saved = localStorage.getItem("bge_comments");
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { /* ignore */ }
     }
     return [
-      { id: "todo-1", text: "評估新宿歌舞伎町套房賣點與伏位", done: false, category: "AI 腳本" },
-      { id: "todo-2", text: "導入新抓取的 SUUMO 東京港區公寓網頁", done: false, category: "盤源" },
-      { id: "todo-3", text: "拍攝大阪民宿長視頻腳本（10分鐘精緻風）", done: false, category: "影片拍攝" },
-      { id: "todo-4", text: "回信覆核 YouTube 留言區的 12 位有興趣買家諮詢", done: true, category: "私域客戶" },
-      { id: "todo-5", text: "更新上架小紅書日本避坑指南短視頻", done: false, category: "發佈運營" }
+      { id: "msg-1", text: "昨天的大阪民宿盤腳本已經寫好，請你今晚開始剪，另外開頭記得幫我加個爆款音樂。", author: "B哥", timestamp: Date.now() - 86400000 },
+      { id: "msg-2", text: "收到！我會配上比較輕快的 Lofi 節奏。背景影片素材我會用那套現成的模板嗎？", author: "剪片師", timestamp: Date.now() - 82400000 },
+      { id: "msg-3", text: "對，就用上禮拜那套京都風格的片頭，片尾加上我們的微信 QR code。", author: "B哥", timestamp: Date.now() - 40000000 }
     ];
   });
 
   useEffect(() => {
-    localStorage.setItem("bge_todos", JSON.stringify(todos));
-  }, [todos]);
+    localStorage.setItem("bge_comments", JSON.stringify(comments));
+  }, [comments]);
 
-  const toggleTodo = (id: string) => {
-    setTodos(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
-  };
-
-  const handleAddTodo = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddComment = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = e.currentTarget;
-    const input = form.elements.namedItem("todoText") as HTMLInputElement;
-    const cat = form.elements.namedItem("todoCategory") as HTMLSelectElement;
+    const input = form.elements.namedItem("commentText") as HTMLInputElement;
+    const authorSelect = form.elements.namedItem("commentAuthor") as HTMLSelectElement;
     if (!input.value.trim()) return;
     
-    setTodos(prev => [
+    setComments(prev => [
       ...prev,
-      { id: "todo-" + Date.now(), text: input.value.trim(), done: false, category: cat.value || "一般" }
+      { id: "msg-" + Date.now(), text: input.value.trim(), author: authorSelect.value, timestamp: Date.now() }
     ]);
     input.value = "";
   };
 
-  const handleDeleteTodo = (id: string) => {
-    setTodos(prev => prev.filter(t => t.id !== id));
+  const handleDeleteComment = (id: string) => {
+    if (confirm("確定要刪除這則留言嗎？")) {
+      setComments(prev => prev.filter(c => c.id !== id));
+    }
   };
 
   // Calculations
@@ -86,7 +83,7 @@ export default function OverviewTab({ listings, onTabChange, onSelectListingForS
         <div className="relative z-10 space-y-4">
           <div className="inline-flex items-center gap-2 bg-[#d4af37]/20 border border-[#d4af37]/40 px-3 py-1 rounded-full text-xs text-[#ebd281]">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>2.0 版本單人高智效工作站</span>
+            <span>B哥高智效工作站</span>
           </div>
           <h1 className="text-3xl md:text-4xl font-display font-medium tracking-tight">
             哈囉 B哥！今天準備做哪一個神級爆款？
@@ -187,80 +184,76 @@ export default function OverviewTab({ listings, onTabChange, onSelectListingForS
           <div className="flex items-center justify-between border-b border-stone-100 pb-3">
             <div className="flex items-center gap-2">
               <CheckSquare className="w-5 h-5 text-[#d4af37]" />
-              <h2 className="text-lg font-display font-medium text-stone-850">今日營運核對清單 (自媒體運作看板)</h2>
+              <h2 className="text-lg font-display font-medium text-stone-850">留言區</h2>
             </div>
             <span className="text-xs bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full font-medium">
-              待辦 {todos.filter(t => !t.done).length} / 總計 {todos.length}
+              共計 {comments.length} 則
             </span>
           </div>
 
-          {/* Quick Add Todo Form */}
-          <form onSubmit={handleAddTodo} className="flex gap-2" id="todo-add-form">
+          {/* Quick Add Comment Form */}
+          <form onSubmit={handleAddComment} className="flex gap-2" id="comment-add-form">
+            <select 
+              name="commentAuthor" 
+              className="px-2.5 py-2 border border-[#EFEFEA] bg-stone-50 text-stone-600 rounded-lg text-xs w-24 shrink-0"
+              defaultValue="B哥"
+            >
+              <option value="B哥">B哥</option>
+              <option value="剪片師">剪片師</option>
+            </select>
             <input 
               type="text" 
-              name="todoText" 
-              placeholder="新增今日自媒體營運任務..." 
+              name="commentText" 
+              placeholder="新增留言..." 
               className="flex-1 px-3 py-2 border border-[#EFEFEA] bg-stone-50 rounded-lg text-sm focus:outline-hidden focus:border-[#d4af37] focus:bg-white transition-all text-stone-800"
               required
             />
-            <select 
-              name="todoCategory" 
-              className="px-2.5 py-2 border border-[#EFEFEA] bg-stone-50 text-stone-600 rounded-lg text-xs"
-            >
-              <option value="AI 腳本">AI 腳本</option>
-              <option value="盤源">盤源</option>
-              <option value="影片拍攝">影片拍攝</option>
-              <option value="私域客戶">私域客戶</option>
-              <option value="一般">一般</option>
-            </select>
             <button 
               type="submit" 
               className="px-3.5 bg-stone-900 text-white rounded-lg text-xs hover:bg-[#d4af37] hover:text-stone-950 font-medium transition-all"
             >
-              新增
+              送出
             </button>
           </form>
 
-          {/* To-Do Lists */}
-          <div className="space-y-2.5 flex-1 max-h-[300px] overflow-y-auto pr-1">
-            {todos.length === 0 ? (
-              <p className="text-stone-400 text-xs text-center py-8">今天完全沒有任務囉！可以放假泡個咖啡 ☕️</p>
+          {/* Comments List */}
+          <div className="space-y-4 flex-1 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+            {comments.length === 0 ? (
+              <p className="text-stone-400 text-xs text-center py-8">目前沒有任何留言！</p>
             ) : (
-              todos.map(todo => (
-                <div 
-                  key={todo.id} 
-                  className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
-                    todo.done 
-                    ? "bg-stone-50/50 border-stone-100 opacity-60" 
-                    : "bg-white border-stone-150 hover:border-[#d4af37]/40"
-                  }`}
-                  id={`todo-item-${todo.id}`}
-                >
-                  <div className="flex items-center gap-3 pr-2 flex-1">
-                    <input 
-                      type="checkbox" 
-                      checked={todo.done} 
-                      onChange={() => toggleTodo(todo.id)}
-                      className="w-4 h-4 rounded-sm accent-[#d4af37] text-[#d4af37] cursor-pointer"
-                    />
-                    <span className={`text-sm ${todo.done ? "line-through text-stone-400" : "text-stone-800 font-medium"}`}>
-                      {todo.text}
-                    </span>
+              comments.map(comment => {
+                const isBGe = comment.author === "B哥";
+                return (
+                  <div 
+                    key={comment.id} 
+                    className={`flex flex-col space-y-1 ${isBGe ? "items-start" : "items-end"}`}
+                    id={`comment-item-${comment.id}`}
+                  >
+                    <div className="flex items-baseline gap-2 px-1">
+                      <span className={`text-[10px] font-bold ${isBGe ? "text-[#b5952d]" : "text-stone-500"}`}>
+                        {comment.author}
+                      </span>
+                      <span className="text-[9px] text-stone-400">
+                        {new Date(comment.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                    <div className={`relative px-4 py-2.5 rounded-2xl max-w-[85%] flex items-center justify-between gap-2 group ${
+                      isBGe 
+                        ? "bg-[#fdf9ef] border border-[#f0e3bc] text-stone-800 rounded-tl-none" 
+                        : "bg-white border border-stone-200 text-stone-700 rounded-tr-none"
+                    }`}>
+                      <p className="text-sm leading-relaxed">{comment.text}</p>
+                      <button 
+                        onClick={() => handleDeleteComment(comment.id)}
+                        className="opacity-0 group-hover:opacity-100 text-stone-300 hover:text-red-400 transition-opacity p-1 shrink-0"
+                        title="刪除"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-150 text-stone-600 whitespace-nowrap">
-                      {todo.category}
-                    </span>
-                    <button 
-                      onClick={() => handleDeleteTodo(todo.id)}
-                      className="text-stone-400 hover:text-red-500 text-xs px-2 transition-all"
-                      title="刪除"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
@@ -290,10 +283,16 @@ export default function OverviewTab({ listings, onTabChange, onSelectListingForS
                   id={`review-listing-item-${listing.id}`}
                 >
                   <img 
-                    src={listing.imageUrl ? `/api/image-proxy?url=${encodeURIComponent(listing.imageUrl)}` : "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=150"} 
+                    src={listing.imageUrl || getFallbackImage(listing, 150)} 
                     alt={listing.title} 
                     className="w-16 h-16 rounded-lg object-cover bg-stone-100 shrink-0 border border-stone-200"
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      const fallback = getFallbackImage(listing, 150);
+                      if (e.currentTarget.src !== fallback) {
+                        e.currentTarget.src = fallback;
+                      }
+                    }}
                   />
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center justify-between">
@@ -339,27 +338,6 @@ export default function OverviewTab({ listings, onTabChange, onSelectListingForS
         </div>
       </div>
 
-      {/* Dynamic CTA box for real-estate content tips */}
-      <div className="bg-amber-50/50 p-5 rounded-2xl border border-amber-200/50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4" id="overview-strategy-tips">
-        <div className="flex gap-3">
-          <div className="p-3 bg-[#d4af37]/20 border border-[#d4af37]/30 text-[#856512] rounded-xl shrink-0 mt-0.5">
-            <Award className="w-5 h-5" />
-          </div>
-          <div>
-            <h4 className="text-sm font-semibold text-stone-850">💡 B哥自媒體爆款心法</h4>
-            <p className="text-xs text-stone-500 mt-1 max-w-xl">
-              「水能載舟，實話能招粉。日本買樓最怕踩雷，中介掩飾的朝向差、大樓老化和管理費，我們在短片中誠實主動踢爆（伏位），客戶反而會百分之百信任我們，隨後預約私域的成交率比傳統推銷高出十倍！」
-            </p>
-          </div>
-        </div>
-        <button 
-          onClick={() => onTabChange("analytics")}
-          className="px-4 py-2 bg-stone-900 text-white rounded-lg text-xs hover:bg-[#d4af37] hover:text-stone-950 font-medium whitespace-nowrap transition-all flex items-center gap-1 self-end md:self-center"
-        >
-          <span>查看營收效能統計</span>
-          <ArrowUpRight className="w-3.5 h-3.5" />
-        </button>
-      </div>
     </div>
   );
 }

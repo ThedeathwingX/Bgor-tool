@@ -27,7 +27,7 @@ export const INITIAL_LISTINGS: Listing[] = [
     summary: "B哥實話實說：呢個大阪民宿盤真係一個難得嘅『印鈔機』！難波站徒步3分鐘，位置直逼神級。8.4%回報喺東京近乎神話，而且有現成執照。雖然夜晚樓下人多有啲雜音，但租民宿嘅遊客要嘅就係熱鬧，根本無人在意！最適合想坐收美金或港幣現金流、對折舊不敏感嘅中產老鐵。B哥強烈推薦直接打包帶走！",
     status: "published",
     createdAt: "2026-06-01T08:00:00Z",
-    imageUrl: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&q=80&w=600",
+    imageUrl: "",
     script: {
       style: "comedy",
       platform: "youtube-long",
@@ -122,10 +122,38 @@ export const INITIAL_LISTINGS: Listing[] = [
       "八坂古蹟保護區有嚴格的噪音、外觀限制，不能更改任何外牆歷史風格與設置廣告",
       "京都對民宿經營的法規變動風險較大，且東山區多條道路狹窄，拖行李或開車出入不便"
     ],
-    summary: "B哥實話實說：呢個盤唔係普通房子，呢個叫『情懷藝術品』！京都東山區核心町家，竟然仲能睇到八坂之塔，呢種物件全日本都無幾個。改裝得無比精緻，侘寂風拉滿，歐美遊客最愛，一晚收佢4萬日元都大把人搶。缺點係木結構維護成本唔低，你要像呵護情人一樣養它。如果你是高端資產配置、想兼顧自住度假與傳統風情，買它就是買入不可複製的日本歷史！",
+    summary: "B哥實話實說：京都東山區核心町家...",
     status: "filming",
     createdAt: "2026-06-10T14:20:00Z",
-    imageUrl: "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&q=80&w=600"
+    imageUrl: ""
+  },
+  {
+    id: "lst-005",
+    title: "🏡 名古屋近郊 寧靜文教區 寬敞一戶建！三代同堂舒適首選",
+    priceJPY: 45000000,
+    priceHKD: 2250000,
+    location: "愛知県長久手市",
+    address: "愛知県長久手市丁子田",
+    layout: "4LDK (一戶建)",
+    sizeSqm: 120.5,
+    sizeTsubo: 36.4,
+    yearBuilt: 2018,
+    yieldRate: 4.5,
+    stationWalk: "Linimo '長久手古戰場站' 徒步 10 分鐘",
+    pros: [
+      "2018新築等級別墅，雙車位設計，太陽能板發電功能完備",
+      "周邊大型購物中心與全日本知名IKEA、長久手AEON徒步即達",
+      "長久手市是日本全國最年輕、生育率最高之一的城市，居住條件極其優良"
+    ],
+    cons: [
+      "由於是名古屋近郊區域，無車家庭的靈活度會稍微受限",
+      "一戶建無固定管理員維護，除草與外牆維保皆需屋主自行處理或委外花費",
+      "4.5%租售比偏向自住或長期保值型資產，較難提供爆發性的短租現金流"
+    ],
+    summary: "B哥實話實說：想買嚟自住或者畀長輩度假？呢個長久手市一戶建包你滿意！空間大到打橫行，而且城市發展規劃極好，對家庭客極度友善。當然投資回報無大阪咁狂，但勝在夠穩健舒服。",
+    status: "review",
+    createdAt: "2026-06-14T09:15:00Z",
+    imageUrl: ""
   },
   {
     id: "lst-004",
@@ -159,8 +187,7 @@ export const INITIAL_LISTINGS: Listing[] = [
 
 export const INITIAL_METRICS: PlatformMetric[] = [
   { platform: "YouTube 長影片", views: 245000, likes: 18400, inquiries: 420, converted: 18, ctr: 9.2, roi: 312 },
-  { platform: "小紅書 日式精緻", views: 189000, likes: 22100, inquiries: 310, converted: 8, ctr: 12.4, roi: 198 },
-  { platform: "抖音/TikTok 短影音", views: 560000, likes: 45600, inquiries: 580, converted: 12, ctr: 7.1, roi: 145 },
+  { platform: "YouTube Shorts", views: 420000, likes: 35000, inquiries: 300, converted: 11, ctr: 7.5, roi: 180 },
   { platform: "Instagram Reels", views: 312000, likes: 29500, inquiries: 240, converted: 9, ctr: 8.8, roi: 215 },
 ];
 

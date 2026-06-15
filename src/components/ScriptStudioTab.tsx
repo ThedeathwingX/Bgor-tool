@@ -34,7 +34,7 @@ export default function ScriptStudioTab({
   // Selector State
   const [currentListingId, setCurrentListingId] = useState(selectedListingId || "");
   const [style, setStyle] = useState<"comedy" | "luxury" | "investor" | "warning">("comedy");
-  const [platform, setPlatform] = useState<"youtube-long" | "tiktok-short" | "red-book">("youtube-long");
+  const [platform, setPlatform] = useState<"youtube-long" | "youtube-shorts" | "instagram-reels">("youtube-long");
 
   // Loaded/Generated Script State
   const [scenes, setScenes] = useState<ScriptScene[]>([]);
@@ -264,8 +264,8 @@ export default function ScriptStudioTab({
               id="platform-script-select"
             >
               <option value="youtube-long">📹 YouTube 長片 (有深度、細分析)</option>
-              <option value="tiktok-short">📱 短視頻 Reels (黃金3秒、金句橫飛)</option>
-              <option value="red-book">📕 小紅書視頻 (小資極簡、侘寂生活風)</option>
+              <option value="youtube-shorts">⚡ YouTube Shorts (強烈吸睛、直式短片)</option>
+              <option value="instagram-reels">📱 Instagram Reels (黃金3秒、金句橫飛)</option>
             </select>
           </div>
         </div>
@@ -317,7 +317,7 @@ export default function ScriptStudioTab({
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-semibold text-[#ebd281] font-display">腳本分鏡板 (可編輯)</span>
                   <span className="text-[10px] bg-stone-800 text-stone-300 px-2 py-0.5 rounded">
-                    {platform === "youtube-long" ? "YouTube 長影" : platform === "tiktok-short" ? "IG / TikTok 短片" : "小紅書影片"}
+                    {platform === "youtube-long" ? "YouTube 長影" : platform === "youtube-shorts" ? "YouTube Shorts" : "Instagram Reels"}
                   </span>
                 </div>
                 <p className="text-[10px] text-stone-400 mt-0.5 font-mono">

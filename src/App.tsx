@@ -110,8 +110,7 @@ export default function App() {
             B哥 2.0
           </div>
           <div>
-            <span className="text-[10px] text-stone-400 font-bold uppercase tracking-widest block font-display">房地產自媒體高智效平台</span>
-            <span className="text-sm font-semibold text-stone-900 font-display">B哥單人版工具 2.0 - 工作概覽</span>
+            <span className="text-sm font-semibold text-stone-900 font-display">B哥高智效工作站</span>
           </div>
         </div>
 

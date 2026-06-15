@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Listing, ListingStatus } from "../types";
+import { getFallbackImage } from "../lib/imageUtils";
 import { 
   Plus, 
   Search, 
@@ -18,7 +19,9 @@ import {
   AlertTriangle,
   Smile,
   X,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ExternalLink,
+  Home
 } from "lucide-react";
 
 interface ListingsTabProps {
@@ -45,6 +48,7 @@ export default function ListingsTab({
   const [filterLocation, setFilterLocation] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterPrice, setFilterPrice] = useState<string>("all");
+  const [filterPropertyType, setFilterPropertyType] = useState<string>("all");
 
   // Manual Form States
   const [manualTitle, setManualTitle] = useState("");
@@ -208,7 +212,16 @@ export default function ListingsTab({
       createdAt: new Date().toISOString(),
       imageUrl: parsedResult.imageUrl || (parsedResult.location?.includes("大阪") 
         ? "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&q=80&w=600"
-        : "https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&q=80&w=600")
+        : "https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&q=80&w=600"),
+      listingUrl: parsedResult.listingUrl,
+      landArea: parsedResult.landArea,
+      buildingArea: parsedResult.buildingArea,
+      privateRoad: parsedResult.privateRoad,
+      landRights: parsedResult.landRights,
+      structure: parsedResult.structure,
+      builder: parsedResult.builder,
+      renovationHistory: parsedResult.renovationHistory,
+      zoning: parsedResult.zoning
     };
 
     onAddListing(newListing);
@@ -238,7 +251,15 @@ export default function ListingsTab({
       return true;
     })();
 
-    return matchesSearch && matchesLocation && matchesStatus && matchesPrice;
+    const matchesPropertyType = (() => {
+      if (filterPropertyType === "all") return true;
+      const isHouse = item.title.includes("一戶建") || item.title.includes("一戸建て") || item.title.includes("別墅") || item.layout.includes("一戶建") || item.layout.includes("一戸建て");
+      if (filterPropertyType === "house") return isHouse;
+      if (filterPropertyType === "apartment") return !isHouse;
+      return true;
+    })();
+
+    return matchesSearch && matchesLocation && matchesStatus && matchesPrice && matchesPropertyType;
   });
 
   return (
@@ -475,6 +496,20 @@ export default function ListingsTab({
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1 bg-stone-50 border border-stone-150 px-2 py-1 rounded-lg">
+            <Home className="w-3.5 h-3.5 text-stone-400" />
+            <select 
+              value={filterPropertyType}
+              onChange={(e) => setFilterPropertyType(e.target.value)}
+              className="bg-transparent border-none text-xs text-stone-700 focus:outline-hidden py-0.5"
+              id="filter-type-select"
+            >
+              <option value="all">全盤源</option>
+              <option value="apartment">公寓 / 大樓</option>
+              <option value="house">一戶建 / 別墅</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1 bg-stone-50 border border-stone-150 px-2 py-1 rounded-lg">
             <Coins className="w-3.5 h-3.5 text-stone-400" />
             <select 
               value={filterPrice}
@@ -543,10 +578,16 @@ export default function ListingsTab({
                 {/* Image and basic info badge */}
                 <div className="relative h-44 bg-stone-100">
                   <img 
-                    src={listing.imageUrl ? `/api/image-proxy?url=${encodeURIComponent(listing.imageUrl)}` : "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=600"} 
+                    src={listing.imageUrl || getFallbackImage(listing, 600)} 
                     alt={listing.title} 
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      const fallback = getFallbackImage(listing, 600);
+                      if (e.currentTarget.src !== fallback) {
+                        e.currentTarget.src = fallback;
+                      }
+                    }}
                   />
                   <div className="absolute top-3 left-3 flex gap-2">
                     <span className="text-[10px] bg-stone-900/80 backdrop-blur-xs text-white px-2 py-0.5 rounded font-mono">
@@ -578,28 +619,84 @@ export default function ListingsTab({
                 <div className="p-5 space-y-4">
                   <div className="space-y-1.5">
                     <h3 className="text-sm font-semibold text-stone-850 leading-snug line-clamp-2 hover:text-[#b5952d] transition-colors" title={listing.title}>
-                      {listing.title}
+                      {listing.listingUrl ? (
+                        <a href={listing.listingUrl} target="_blank" rel="noopener noreferrer" className="hover:underline flex items-center gap-1">
+                          {listing.title} <ExternalLink className="w-3 h-3 text-stone-400 shrink-0" />
+                        </a>
+                      ) : (
+                        listing.title
+                      )}
                     </h3>
                     <p className="text-[11px] text-stone-500 font-mono">ID: {listing.id} | 地址: {listing.address || "暫未記錄"}</p>
                   </div>
 
                   {/* Core Numeric Params Grid */}
-                  <div className="grid grid-cols-2 gap-3 bg-stone-50 rounded-lg p-3 text-xs border border-stone-100">
-                    <div>
-                      <span className="text-stone-400 block text-[10px]">售價 (JPY)</span>
-                      <span className="font-semibold text-stone-800">{(listing.priceJPY / 10000).toLocaleString(undefined, {maximumFractionDigits: 1})} 萬円</span>
-                    </div>
-                    <div>
-                      <span className="text-stone-400 block text-[10px]">折合港幣估算 (HKD)</span>
-                      <span className="font-semibold text-[#a5811c]">{(listing.priceHKD / 10000).toLocaleString(undefined, {maximumFractionDigits: 1})} 萬港元</span>
-                    </div>
-                    <div>
-                      <span className="text-stone-400 block text-[10px]">面積大小 (Layout)</span>
-                      <span className="text-stone-700 font-medium">{listing.layout} | {listing.sizeSqm}m²</span>
-                    </div>
-                    <div>
-                      <span className="text-stone-400 block text-[10px]">築年數 & 徒步</span>
-                      <span className="text-stone-700 font-medium truncate block" title={listing.stationWalk}>{listing.yearBuilt} 年築 | 步程約</span>
+                  <div className="bg-stone-50 rounded-lg p-3 text-xs border border-stone-100 flex flex-col gap-2">
+                    <div className="grid grid-cols-2 gap-y-2 gap-x-3">
+                      <div>
+                        <span className="text-stone-400 block text-[10px]">售價 (JPY)</span>
+                        <span className="font-semibold text-stone-800">{(listing.priceJPY / 10000).toLocaleString(undefined, {maximumFractionDigits: 1})} 萬円</span>
+                      </div>
+                      <div>
+                        <span className="text-stone-400 block text-[10px]">折合估算 (HKD)</span>
+                        <span className="font-semibold text-[#a5811c]">{(listing.priceHKD / 10000).toLocaleString(undefined, {maximumFractionDigits: 1})} 萬港元</span>
+                      </div>
+                      <div>
+                        <span className="text-stone-400 block text-[10px]">面積/格局 (Layout)</span>
+                        <span className="text-stone-700 font-medium">{listing.layout} | {listing.sizeSqm}m²</span>
+                      </div>
+                      <div>
+                        <span className="text-stone-400 block text-[10px]">築年月 / 交通</span>
+                        <span className="text-stone-700 font-medium truncate block" title={listing.stationWalk}>{listing.yearBuilt} | {listing.stationWalk || "步程約"}</span>
+                      </div>
+                      {listing.landArea && (
+                        <div>
+                          <span className="text-stone-400 block text-[10px]">土地面積</span>
+                          <span className="text-stone-700 font-medium truncate block" title={listing.landArea}>{listing.landArea}</span>
+                        </div>
+                      )}
+                      {listing.buildingArea && (
+                        <div>
+                          <span className="text-stone-400 block text-[10px]">建物面積</span>
+                          <span className="text-stone-700 font-medium truncate block" title={listing.buildingArea}>{listing.buildingArea}</span>
+                        </div>
+                      )}
+                      {listing.privateRoad && (
+                        <div>
+                          <span className="text-stone-400 block text-[10px]">私道負擔・道路</span>
+                          <span className="text-stone-700 font-medium truncate block" title={listing.privateRoad}>{listing.privateRoad}</span>
+                        </div>
+                      )}
+                      {listing.landRights && (
+                        <div>
+                          <span className="text-stone-400 block text-[10px]">權利形態</span>
+                          <span className="text-stone-700 font-medium truncate block" title={listing.landRights}>{listing.landRights}</span>
+                        </div>
+                      )}
+                      {listing.structure && (
+                        <div>
+                          <span className="text-stone-400 block text-[10px]">構造・工法</span>
+                          <span className="text-stone-700 font-medium truncate block" title={listing.structure}>{listing.structure}</span>
+                        </div>
+                      )}
+                      {listing.builder && (
+                        <div>
+                          <span className="text-stone-400 block text-[10px]">施工</span>
+                          <span className="text-stone-700 font-medium truncate block" title={listing.builder}>{listing.builder}</span>
+                        </div>
+                      )}
+                      {listing.renovationHistory && (
+                        <div className="col-span-2">
+                          <span className="text-stone-400 block text-[10px]">裝修紀錄</span>
+                          <span className="text-stone-700 font-medium truncate block" title={listing.renovationHistory}>{listing.renovationHistory}</span>
+                        </div>
+                      )}
+                      {listing.zoning && (
+                        <div className="col-span-2">
+                          <span className="text-stone-400 block text-[10px]">用途地域</span>
+                          <span className="text-stone-700 font-medium truncate block" title={listing.zoning}>{listing.zoning}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 

@@ -10,7 +10,7 @@ export interface Listing {
   layout: string;
   sizeSqm: number;
   sizeTsubo: number;
-  yearBuilt: number;
+  yearBuilt: number | string;
   yieldRate: number;
   stationWalk: string;
   pros: string[];
@@ -20,6 +20,16 @@ export interface Listing {
   createdAt: string;
   imageUrl?: string;
   script?: Script;
+  
+  listingUrl?: string;
+  landArea?: string;
+  buildingArea?: string;
+  privateRoad?: string;
+  landRights?: string;
+  structure?: string;
+  builder?: string;
+  renovationHistory?: string;
+  zoning?: string;
 }
 
 export interface ScriptScene {
@@ -32,7 +42,7 @@ export interface ScriptScene {
 
 export interface Script {
   style: "comedy" | "luxury" | "investor" | "warning";
-  platform: "youtube-long" | "tiktok-short" | "red-book";
+  platform: "youtube-long" | "youtube-shorts" | "instagram-reels";
   scenes: ScriptScene[];
   lastUpdated: string;
 }

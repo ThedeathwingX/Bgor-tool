@@ -81,6 +81,15 @@ app.post("/api/gemini/parse-listing", async (req, res) => {
             yieldRate: { type: Type.NUMBER, description: "Estimated gross yield percentage (e.g. 5.8)" },
             stationWalk: { type: Type.STRING, description: "Station and walking distance in minutes (e.g., '山手線 新宿站 徒步 6分')" },
             imageUrl: { type: Type.STRING, description: "Extract the URL of the main property photo or image if present in the raw text/URL. For SUUMO, it might look like 'https://img.suumo.jp/...' or similar." },
+            listingUrl: { type: Type.STRING, description: "The original listing URL if provided" },
+            landArea: { type: Type.STRING, description: "Land area (土地面積) if it's a house/land, e.g. '120.5m2'" },
+            buildingArea: { type: Type.STRING, description: "Building area (建物面積), e.g. '100m2'" },
+            privateRoad: { type: Type.STRING, description: "Private road burden / road access (私道負担・道路)" },
+            landRights: { type: Type.STRING, description: "Land rights (土地の権利形態), e.g. '所有権', '借地権'" },
+            structure: { type: Type.STRING, description: "Structure / Construction method (構造・工法), e.g. '木造', 'RC造'" },
+            builder: { type: Type.STRING, description: "Builder / Construction company (施工会社)" },
+            renovationHistory: { type: Type.STRING, description: "Renovation history / details (リフォーム履歴)" },
+            zoning: { type: Type.STRING, description: "Zoning / Use district (用途地域), e.g. '商業地域', '第一種低層住居専用地域'" },
             pros: {
               type: Type.ARRAY,
               items: { type: Type.STRING },
@@ -98,7 +107,7 @@ app.post("/api/gemini/parse-listing", async (req, res) => {
       }
     });
 
-    const parsedData = JSON.parse(response.text?.trim() || "{}");
+    let parsedData: any = JSON.parse(response.text?.trim() || "{}");
     res.json(parsedData);
   } catch (error: any) {
     console.error("Error parsing property with Gemini:", error);
@@ -126,8 +135,8 @@ app.post("/api/gemini/generate-script", async (req, res) => {
 
     const platformDescriptions = {
       "youtube-long": "YouTube 長影片（10-15分鐘，講述更詳細，有深度的盤源特質與財務規劃）",
-      "tiktok-short": "TikTok/IG Reels 短視頻（60秒，節奏極度緊湊，第一秒就要暴扣吸引，金句頻出）",
-      "red-book": "小紅書影片（3分鐘，圖文穿插感強，主打精緻精緻包裝、避坑點與日式生活感）"
+      "youtube-shorts": "YouTube Shorts (60秒以內，強烈吸睛，節奏緊湊的直式短視頻)",
+      "instagram-reels": "Instagram Reels 視頻（60秒，節奏極度緊湊，第一秒就要暴扣吸引，金句頻出）"
     };
 
     const prompt = `
@@ -185,43 +194,41 @@ app.post("/api/gemini/generate-script", async (req, res) => {
   }
 });
 
-// Helper generators for simulated fallback if key is missing/inactive
-app.get("/api/image-proxy", async (req, res) => {
-  const imageUrl = req.query.url as string;
-  if (!imageUrl) {
-    return res.status(400).send("No url provided");
-  }
+// ...
 
-  try {
-    const fetchedResponse = await fetch(imageUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Referer': 'https://suumo.jp/',
-        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
-      }
-    });
-
-    if (!fetchedResponse.ok) {
-      return res.status(fetchedResponse.status).send(`Failed to fetch image: ${fetchedResponse.statusText}`);
-    }
-
-    const contentType = fetchedResponse.headers.get("content-type");
-    if (contentType) {
-      res.setHeader("Content-Type", contentType);
-    }
-    
-    res.setHeader("Cache-Control", "public, max-age=86400");
-    
-    const arrayBuffer = await fetchedResponse.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    res.send(buffer);
-  } catch (error) {
-    res.status(500).send("Server error fetching image");
-  }
-});
+// Basic error handler
 
 function getMockParsedProperty(input: string): any {
   const isOsaka = input.toLowerCase().includes("osaka") || input.includes("大阪");
+  const isHouse = input.includes("一戶建") || input.includes("一戸建て") || input.includes("別墅");
+
+  if (isHouse) {
+    return {
+      title: "🏡 名古屋/近郊 寧靜文教區 寬敞一戶建！三代同堂舒適首選",
+      priceJPY: 45000000,
+      priceHKD: 2250000,
+      location: "愛知県長久手市",
+      address: "愛知県長久手市丁子田",
+      layout: "4LDK (一戶建)",
+      sizeSqm: 120.5,
+      sizeTsubo: 36.4,
+      yearBuilt: 2018,
+      yieldRate: 4.5,
+      stationWalk: "Linimo '長久手古戰場站' 徒步 10 分鐘",
+      pros: [
+        "2018新築等級別墅，雙車位設計，太陽能板發電功能完備",
+        "周邊大型購物中心徒步即達",
+        "居住條件極其優良"
+      ],
+      cons: [
+        "無車家庭的靈活度會稍微受限",
+        "除草與外牆維保皆需自行處理或委外花費",
+        "租金回報期較長"
+      ],
+      summary: "想買嚟自住或者畀長輩度假？呢個一戶建包你滿意！空間大到打橫行，雖然投資回報無大阪咁狂，但勝在夠穩健舒服。",
+      imageUrl: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&q=80&w=600"
+    };
+  }
   
   if (isOsaka) {
     return {
@@ -247,7 +254,7 @@ function getMockParsedProperty(input: string): any {
         "築年數中等，未來折舊率比新樓高"
       ],
       summary: "B哥實話實說：呢個難波民宿盤簡直係投資狂熱者嘅恩物！難波徒步4分鐘係神級位置，8.4%嘅回報喺東京根本諗都唔使諗。雖然夜晚有啲鬧區噪音，但遊客來大阪就係要熱鬧，邊個會喺10點前瞓覺？如果你搵緊高現金流、唔介意樓齡比較中等，呢個直接執照現成嘅民宿絕對係極品！",
-      imageUrl: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&q=80&w=600"
+      imageUrl: ""
     };
   }
 
