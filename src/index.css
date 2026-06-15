@@ -1,0 +1,40 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "Noto Sans TC", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", "Noto Sans TC", sans-serif;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #d4af37;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #b5952d;
+}
+
+/* Custom premium hover states */
+.premium-card {
+  transition: all 0.2s ease-in-out;
+}
+.premium-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 20px -8px rgba(197, 168, 92, 0.15);
+}
+
+.champagne-border {
+  border-color: rgba(197, 168, 92, 0.2);
+}
+
+.champagne-gradient {
+  background: linear-gradient(135deg, #1B4332 0%, #081C15 100%);
+}

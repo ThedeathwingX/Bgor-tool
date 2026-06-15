@@ -1,0 +1,6 @@
+{
+  "name": "B哥單人版工具 2.0",
+  "description": "專為房產自媒體與單人經營者打造的極致效率工作站。整合日式房產/SUUMO智能解析、AI多格式腳本生成、房產盤源數據管理與內容製作看板，實現全鏈路敏捷運營。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
