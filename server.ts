@@ -80,6 +80,7 @@ app.post("/api/gemini/parse-listing", async (req, res) => {
             yearBuilt: { type: Type.INTEGER, description: "Year built as a number (e.g. 1998, 2012)" },
             yieldRate: { type: Type.NUMBER, description: "Estimated gross yield percentage (e.g. 5.8)" },
             stationWalk: { type: Type.STRING, description: "Station and walking distance in minutes (e.g., '山手線 新宿站 徒步 6分')" },
+            imageUrl: { type: Type.STRING, description: "Extract the URL of the main property photo or image if present in the raw text/URL. For SUUMO, it might look like 'https://img.suumo.jp/...' or similar." },
             pros: {
               type: Type.ARRAY,
               items: { type: Type.STRING },
@@ -185,6 +186,40 @@ app.post("/api/gemini/generate-script", async (req, res) => {
 });
 
 // Helper generators for simulated fallback if key is missing/inactive
+app.get("/api/image-proxy", async (req, res) => {
+  const imageUrl = req.query.url as string;
+  if (!imageUrl) {
+    return res.status(400).send("No url provided");
+  }
+
+  try {
+    const fetchedResponse = await fetch(imageUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Referer': 'https://suumo.jp/',
+        'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8'
+      }
+    });
+
+    if (!fetchedResponse.ok) {
+      return res.status(fetchedResponse.status).send(`Failed to fetch image: ${fetchedResponse.statusText}`);
+    }
+
+    const contentType = fetchedResponse.headers.get("content-type");
+    if (contentType) {
+      res.setHeader("Content-Type", contentType);
+    }
+    
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    
+    const arrayBuffer = await fetchedResponse.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    res.send(buffer);
+  } catch (error) {
+    res.status(500).send("Server error fetching image");
+  }
+});
+
 function getMockParsedProperty(input: string): any {
   const isOsaka = input.toLowerCase().includes("osaka") || input.includes("大阪");
   
@@ -211,7 +246,8 @@ function getMockParsedProperty(input: string): any {
         "臨近商業鬧區，夜晚街道稍微有些喧鬧噪音",
         "築年數中等，未來折舊率比新樓高"
       ],
-      summary: "B哥實話實說：呢個難波民宿盤簡直係投資狂熱者嘅恩物！難波徒步4分鐘係神級位置，8.4%嘅回報喺東京根本諗都唔使諗。雖然夜晚有啲鬧區噪音，但遊客來大阪就係要熱鬧，邊個會喺10點前瞓覺？如果你搵緊高現金流、唔介意樓齡比較中等，呢個直接執照現成嘅民宿絕對係極品！"
+      summary: "B哥實話實說：呢個難波民宿盤簡直係投資狂熱者嘅恩物！難波徒步4分鐘係神級位置，8.4%嘅回報喺東京根本諗都唔使諗。雖然夜晚有啲鬧區噪音，但遊客來大阪就係要熱鬧，邊個會喺10點前瞓覺？如果你搵緊高現金流、唔介意樓齡比較中等，呢個直接執照現成嘅民宿絕對係極品！",
+      imageUrl: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&q=80&w=600"
     };
   }
 
@@ -238,7 +274,8 @@ function getMockParsedProperty(input: string): any {
       "臨近港灣，梅雨或颱風季節海風濕度較高，空調除濕要常開",
       "售價較高，適合預算充裕且追求高資產保值性的買家"
     ],
-    summary: "B哥實話實說：港區芝浦一直係東京白領嘅心頭好。雖然5.2%投報看似唔算頂級，但港區嘅保值能力係『神級』。臨海濕氣雖然重，但物業管理好到你唔信，而且開窗有運河景，帶女仔返黎直接加100分。如果你預算夠、追求穩健、想喺東京買個優雅又抗通脹嘅心水盤，呢個精緻1LDK閉眼買就係了！"
+    summary: "B哥實話實說：港區芝浦一直係東京白領嘅心頭好。雖然5.2%投報看似唔算頂級，但港區嘅保值能力係『神級』。臨海濕氣雖然重，但物業管理好到你唔信，而且開窗有運河景，帶女仔返黎直接加100分。如果你預算夠、追求穩健、想喺東京買個優雅又抗通脹嘅心水盤，呢個精緻1LDK閉眼買就係了！",
+    imageUrl: "https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&q=80&w=600"
   };
 }
 

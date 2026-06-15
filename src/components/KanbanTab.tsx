@@ -107,7 +107,7 @@ export default function KanbanTab({
                       {/* Image and basic tag in card */}
                       <div className="relative h-20 bg-stone-150 rounded-lg overflow-hidden border border-stone-100">
                         <img 
-                          src={listing.imageUrl || "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=150"} 
+                          src={listing.imageUrl ? `/api/image-proxy?url=${encodeURIComponent(listing.imageUrl)}` : "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=150"} 
                           alt={listing.title} 
                           className="w-full h-full object-cover"
                           referrerPolicy="no-referrer"
@@ -217,7 +217,7 @@ export default function KanbanTab({
               {/* Graphic Banner */}
               <div className="h-44 rounded-lg overflow-hidden border border-stone-100 relative shadow-sm">
                 <img 
-                  src={selectedListing.imageUrl || "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=600"} 
+                  src={selectedListing.imageUrl ? `/api/image-proxy?url=${encodeURIComponent(selectedListing.imageUrl)}` : "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=600"} 
                   alt={selectedListing.title} 
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"

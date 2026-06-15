@@ -290,7 +290,7 @@ export default function OverviewTab({ listings, onTabChange, onSelectListingForS
                   id={`review-listing-item-${listing.id}`}
                 >
                   <img 
-                    src={listing.imageUrl || "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=150"} 
+                    src={listing.imageUrl ? `/api/image-proxy?url=${encodeURIComponent(listing.imageUrl)}` : "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=150"} 
                     alt={listing.title} 
                     className="w-16 h-16 rounded-lg object-cover bg-stone-100 shrink-0 border border-stone-200"
                     referrerPolicy="no-referrer"

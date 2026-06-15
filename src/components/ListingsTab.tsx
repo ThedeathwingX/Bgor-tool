@@ -44,6 +44,7 @@ export default function ListingsTab({
   const [searchQuery, setSearchQuery] = useState("");
   const [filterLocation, setFilterLocation] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterPrice, setFilterPrice] = useState<string>("all");
 
   // Manual Form States
   const [manualTitle, setManualTitle] = useState("");
@@ -205,9 +206,9 @@ export default function ListingsTab({
       summary: parsedResult.summary || "B哥真心話大爆料！",
       status: "review",
       createdAt: new Date().toISOString(),
-      imageUrl: parsedResult.location?.includes("大阪") 
+      imageUrl: parsedResult.imageUrl || (parsedResult.location?.includes("大阪") 
         ? "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&q=80&w=600"
-        : "https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&q=80&w=600"
+        : "https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&q=80&w=600")
     };
 
     onAddListing(newListing);
@@ -227,8 +228,17 @@ export default function ListingsTab({
       
     const matchesLocation = filterLocation ? item.location.includes(filterLocation) : true;
     const matchesStatus = filterStatus === "all" ? true : item.status === filterStatus;
+    const matchesPrice = (() => {
+      if (filterPrice === "all") return true;
+      const price = item.priceJPY;
+      if (filterPrice === "under-10m") return price < 10000000;
+      if (filterPrice === "10m-30m") return price >= 10000000 && price <= 30000000;
+      if (filterPrice === "30m-50m") return price > 30000000 && price <= 50000000;
+      if (filterPrice === "above-50m") return price > 50000000;
+      return true;
+    })();
 
-    return matchesSearch && matchesLocation && matchesStatus;
+    return matchesSearch && matchesLocation && matchesStatus && matchesPrice;
   });
 
   return (
@@ -465,6 +475,22 @@ export default function ListingsTab({
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-1 bg-stone-50 border border-stone-150 px-2 py-1 rounded-lg">
+            <Coins className="w-3.5 h-3.5 text-stone-400" />
+            <select 
+              value={filterPrice}
+              onChange={(e) => setFilterPrice(e.target.value)}
+              className="bg-transparent border-none text-xs text-stone-700 focus:outline-hidden py-0.5"
+              id="filter-price-select"
+            >
+              <option value="all">全部金額</option>
+              <option value="under-10m">1,000萬日圓以下</option>
+              <option value="10m-30m">1,000萬 - 3,000萬日圓</option>
+              <option value="30m-50m">3,000萬 - 5,000萬日圓</option>
+              <option value="above-50m">5,000萬日圓以上</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1 bg-stone-50 border border-stone-150 px-2 py-1 rounded-lg">
             <Filter className="w-3.5 h-3.5 text-stone-400" />
             <select 
               value={filterLocation}
@@ -517,7 +543,7 @@ export default function ListingsTab({
                 {/* Image and basic info badge */}
                 <div className="relative h-44 bg-stone-100">
                   <img 
-                    src={listing.imageUrl || "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=600"} 
+                    src={listing.imageUrl ? `/api/image-proxy?url=${encodeURIComponent(listing.imageUrl)}` : "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=600"} 
                     alt={listing.title} 
                     className="w-full h-full object-cover"
                     referrerPolicy="no-referrer"
