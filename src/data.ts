@@ -27,6 +27,7 @@ export const INITIAL_LISTINGS: Listing[] = [
     summary: "B哥實話實說：呢個大阪民宿盤真係一個難得嘅『印鈔機』！難波站徒步3分鐘，位置直逼神級。8.4%回報喺東京近乎神話，而且有現成執照。雖然夜晚樓下人多有啲雜音，但租民宿嘅遊客要嘅就係熱鬧，根本無人在意！最適合想坐收美金或港幣現金流、對折舊不敏感嘅中產老鐵。B哥強烈推薦直接打包帶走！",
     status: "published",
     createdAt: "2026-06-01T08:00:00Z",
+    propertyType: "apartment",
     imageUrl: "",
     script: {
       style: "comedy",
@@ -97,6 +98,7 @@ export const INITIAL_LISTINGS: Listing[] = [
     summary: "B哥實話實說：港區芝浦，東京白領嘅心頭好，身份嘅象徵。4.8%表面睇唔算高，但港區嘅保值和抗通膨能力係『日本天花板級』。雖然臨海濕氣略重，但大樓物業管理優質到你唔信，開窗有河景，帶女伴返黎印象分直接爆表。預算充足、想安全抗通脹、注重資產質素嘅老鐵們，閉眼上車無錯！",
     status: "review",
     createdAt: "2026-06-05T10:30:00Z",
+    propertyType: "apartment",
     imageUrl: "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&q=80&w=600"
   },
   {
@@ -125,6 +127,7 @@ export const INITIAL_LISTINGS: Listing[] = [
     summary: "B哥實話實說：京都東山區核心町家...",
     status: "filming",
     createdAt: "2026-06-10T14:20:00Z",
+    propertyType: "house",
     imageUrl: ""
   },
   {
@@ -153,6 +156,7 @@ export const INITIAL_LISTINGS: Listing[] = [
     summary: "B哥實話實說：想買嚟自住或者畀長輩度假？呢個長久手市一戶建包你滿意！空間大到打橫行，而且城市發展規劃極好，對家庭客極度友善。當然投資回報無大阪咁狂，但勝在夠穩健舒服。",
     status: "review",
     createdAt: "2026-06-14T09:15:00Z",
+    propertyType: "house",
     imageUrl: ""
   },
   {
@@ -181,6 +185,7 @@ export const INITIAL_LISTINGS: Listing[] = [
     summary: "B哥實話實說：67萬港元買新宿一塊地，仲想點？新宿歌舞伎町旁，雖然周邊環境可能令人有點猶豫，但租務市場強到爆炸！單身白領、留學生搶住，抗跌性高。室內裝潢是傳統舊式風格，所以買完強烈建議花個兩萬港幣翻新一下，租金即刻能多拿 15%！最適合預算有限、想踏入日本買房、要小試牛刀賺取穩定港幣现金流嘅老鐵。",
     status: "script",
     createdAt: "2026-06-12T09:15:00Z",
+    propertyType: "apartment",
     imageUrl: "https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&q=80&w=600"
   }
 ];

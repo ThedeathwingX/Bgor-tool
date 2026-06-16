@@ -1,5 +1,13 @@
 export type ListingStatus = "review" | "script" | "filming" | "editing" | "published";
 
+export interface PropertyRating {
+  location: number;      // 地段 (1-5)
+  traffic: number;       // 交通 (1-5)
+  quality: number;       // 單位質素 (1-5)
+  price: number;         // 價錢 (1-5)
+  amenities: number;     // 生活配套 (1-5)
+}
+
 export interface Listing {
   id: string;
   title: string;
@@ -30,6 +38,8 @@ export interface Listing {
   builder?: string;
   renovationHistory?: string;
   zoning?: string;
+  propertyType?: "apartment" | "house";
+  ratings?: PropertyRating;
 }
 
 export interface ScriptScene {

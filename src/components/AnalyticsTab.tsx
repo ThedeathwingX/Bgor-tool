@@ -137,7 +137,7 @@ export default function AnalyticsTab({ metrics, trendData }: AnalyticsTabProps) 
           </div>
           <div className="h-64 w-full text-[10px] font-sans" id="trend-line-chart-container">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendData}>
+              <LineChart data={trendData} margin={{ top: 10, right: 10, left: -10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f3" />
                 <XAxis dataKey="date" stroke="#888888" tickLine={false} />
                 <YAxis yAxisId="left" stroke="#888888" orientation="left" label={{ value: '宣傳播放', angle: -90, position: 'insideLeft' }} />
@@ -159,7 +159,7 @@ export default function AnalyticsTab({ metrics, trendData }: AnalyticsTabProps) 
           </div>
           <div className="h-64 w-full text-[10px] font-sans" id="platform-bar-chart-container">
             <ResponsiveContainer width="100%" height="100%">
-              <RechartsBarChart data={metrics}>
+              <RechartsBarChart data={metrics} margin={{ top: 10, right: 10, left: -10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f3" />
                 <XAxis dataKey="platform" stroke="#888888" tickLine={false} />
                 <YAxis stroke="#888888" />

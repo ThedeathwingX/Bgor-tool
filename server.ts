@@ -32,10 +32,73 @@ function getGeminiClient(): GoogleGenAI {
   return aiClient;
 }
 
+// Helper to race any promise against a timeout to prevent gateway drops (HTTP 000)
+async function callGeminiWithTimeout<T>(apiCall: Promise<T>, timeoutMs: number = 25000): Promise<T> {
+  let timeoutId: NodeJS.Timeout | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error("Timeout"));
+    }, timeoutMs);
+  });
+
+  try {
+    return await Promise.race([apiCall, timeoutPromise]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
+// Helper to call Gemini with retries and alternate fallback models to bypass any 503/UNAVAILABLE or heavy demand errors
+async function callGeminiWithRetryAndFallback(
+  ai: GoogleGenAI,
+  params: { contents: any; config?: any },
+  timeoutMs: number = 30000
+): Promise<any> {
+  const models = ["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"];
+  let lastError: any = null;
+
+  for (const model of models) {
+    let attempts = 2; // Try up to 2 times for each model
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        console.log(`[Gemini SDK] Trying model "${model}" (Attempt ${attempt}/${attempts})...`);
+        const apiCall = ai.models.generateContent({
+          model,
+          contents: params.contents,
+          config: params.config,
+        });
+
+        const response = await callGeminiWithTimeout(apiCall, timeoutMs);
+        if (response && response.text) {
+          console.log(`[Gemini SDK] Success using model: ${model} on attempt ${attempt}`);
+          return response;
+        }
+        throw new Error("Received empty response from the model");
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[Gemini SDK] Error for model "${model}" on attempt ${attempt}:`, err?.message || err);
+        
+        // Wait a longer exponential-style backoff delay (1000ms to 2500ms) to allow the rate limit/load spike to subside
+        if (attempt < attempts) {
+          const delay = 1200 * attempt;
+          console.log(`[Gemini SDK] Retrying ${model} in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    // Give a short delay before trying the next model
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }
+
+  throw lastError || new Error("All fallback models and retries failed");
+}
+
 // 1. API: Parse Japanese/SUUMO Property using Gemini
 app.post("/api/gemini/parse-listing", async (req, res) => {
+  const { rawText, listingUrl } = req.body;
   try {
-    const { rawText, listingUrl } = req.body;
     if (!rawText && !listingUrl) {
       return res.status(400).json({ error: "Please provide either rawText or listingUrl to parse." });
     }
@@ -46,28 +109,67 @@ app.post("/api/gemini/parse-listing", async (req, res) => {
       return res.json(getMockParsedProperty(rawText || listingUrl));
     }
 
+    let inputContent = rawText;
+    if (!inputContent && listingUrl) {
+      try {
+        console.log(`[Parser] Fetching page content for ${listingUrl} directly...`);
+        const fetchRes = await fetch(listingUrl, {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept-Language": "ja,en-US;q=0.9,en;q=0.8"
+          }
+        });
+        if (fetchRes.ok) {
+          const html = await fetchRes.text();
+          const bodyStart = html.indexOf("<body");
+          const bodyEnd = html.indexOf("</body>");
+          let cleanedHtml = html;
+          if (bodyStart !== -1 && bodyEnd !== -1) {
+            cleanedHtml = html.substring(bodyStart, bodyEnd + 7);
+          }
+          // Remove scripts, styles, iframe, and other bulky tags
+          cleanedHtml = cleanedHtml
+            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+            .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+            .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "");
+          
+          // Truncate to save tokens (approx 35k chars)
+          if (cleanedHtml.length > 35000) {
+            cleanedHtml = cleanedHtml.substring(0, 35000);
+          }
+          inputContent = `Source URL: ${listingUrl}\n\nWebpage content HTML:\n${cleanedHtml}`;
+          console.log(`[Parser] Successfully fetched and prepared HTML content (${cleanedHtml.length} chars)`);
+        } else {
+          console.warn(`[Parser] Direct fetch failed: ${fetchRes.status} ${fetchRes.statusText}`);
+          inputContent = `URL: ${listingUrl}`;
+        }
+      } catch (fetchErr) {
+        console.warn("[Parser] Direct fetch error, sending URL only:", fetchErr);
+        inputContent = `URL: ${listingUrl}`;
+      }
+    }
+
     const prompt = `
       You are B哥 (B-Ge), a premium real estate content creator specializing in Japanese property investments for HK/Taiwan buyers.
       Your signature is honesty, humor, and a sharp eye for "伏位" (cons/traps/hidden defects) as well as "賣點" (pros/selling points).
       
-      Analyze the following real estate text or link and extract the structured values in Traditional Chinese (Hong Kong/Taiwan terminology, e.g. "呎" for area, "LDK", "投報率", "築年數").
+      Analyze the following real estate text, HTML, or webpage details and extract the structured values in Traditional Chinese (Hong Kong/Taiwan terminology, e.g. "呎" or "坪" for area, LDK, layout, 投報率, 建立築年).
       If the text is in Japanese (like from SUUMO), parse it accurately and translate JPY to HKD (using a current rate of approx 1 JPY = 0.05 HKD).
       
-      Extract values to match this JSON schema.
+      Extract values to match this JSON schema. Under no circumstances should you omit any required fields. If a required field cannot be found, provide a realistic estimated value based on similar listings.
       
       --- INPUT CONTENT ---
-      ${rawText || `URL: ${listingUrl}`}
+      ${inputContent}
       --- END INPUT CONTENT ---
     `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+    const response = await callGeminiWithRetryAndFallback(ai, {
       contents: prompt,
       config: {
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
-          required: ["title", "priceJPY", "priceHKD", "location", "address", "layout", "sizeSqm", "sizeTsubo", "yearBuilt", "yieldRate", "stationWalk", "pros", "cons", "summary"],
+          required: ["title", "priceJPY", "location", "pros", "cons", "summary"],
           properties: {
             title: { type: Type.STRING, description: "A catchy, appealing Chinese title for social media (e.g., '新宿黃金地段 1LDK 投報超高小豪宅')" },
             priceJPY: { type: Type.INTEGER, description: "Price in JPY (e.g. 28000000)" },
@@ -85,11 +187,12 @@ app.post("/api/gemini/parse-listing", async (req, res) => {
             landArea: { type: Type.STRING, description: "Land area (土地面積) if it's a house/land, e.g. '120.5m2'" },
             buildingArea: { type: Type.STRING, description: "Building area (建物面積), e.g. '100m2'" },
             privateRoad: { type: Type.STRING, description: "Private road burden / road access (私道負担・道路)" },
-            landRights: { type: Type.STRING, description: "Land rights (土地の権利形態), e.g. '所有権', '借地権'" },
+            landRights: { type: Type.STRING, description: "Land rights (土地の権利形態), e.g. '所有權', '借地權'" },
             structure: { type: Type.STRING, description: "Structure / Construction method (構造・工法), e.g. '木造', 'RC造'" },
             builder: { type: Type.STRING, description: "Builder / Construction company (施工会社)" },
             renovationHistory: { type: Type.STRING, description: "Renovation history / details (リフォーム履歴)" },
             zoning: { type: Type.STRING, description: "Zoning / Use district (用途地域), e.g. '商業地域', '第一種低層住居専用地域'" },
+            propertyType: { type: Type.STRING, description: "The type of the property. Must be 'apartment' if it is an apartment/condominium/mansion, or 'house' if it is a detached house/single-family home/villa/townhouse." },
             pros: {
               type: Type.ARRAY,
               items: { type: Type.STRING },
@@ -103,23 +206,33 @@ app.post("/api/gemini/parse-listing", async (req, res) => {
             summary: { type: Type.STRING, description: "A short, honest and humorous expert rating/verdict written in B哥's tone" }
           }
         },
-        systemInstruction: "You are an expert real estate analyzer. Extract data strictly into JSON matches the schema. Provide output in highly-readable Traditional Chinese (HK/TW)."
+        systemInstruction: "You are an expert real estate analyzer. Extract data strictly into JSON matches the schema. Provide output in highly-readable Traditional Chinese (HK/TW). Keep pros, cons and summary extremely short and punchy (1-2 sentences max each) to prevent generation latency."
       }
     });
-
     let parsedData: any = JSON.parse(response.text?.trim() || "{}");
+    // Ensure listingUrl is carried over
+    if (listingUrl && !parsedData.listingUrl) {
+      parsedData.listingUrl = listingUrl;
+    }
+    parsedData.isAIParsed = true;
     res.json(parsedData);
   } catch (error: any) {
-    console.error("Error parsing property with Gemini:", error);
-    res.status(500).json({ error: error.message || "Failed to parse property." });
+    console.warn("Parse API experienced error or timeout, running fail-safe local property parser:", error);
+    try {
+      const fallbackResult = getMockParsedProperty(rawText || listingUrl);
+      fallbackResult.isAIParsed = false;
+      res.json(fallbackResult);
+    } catch (fallbackError: any) {
+      console.error("Critical fallback failure:", fallbackError);
+      res.status(500).json({ error: "Failed to parse listing due to internal error." });
+    }
   }
 });
 
 // 2. API: Generate Script using Gemini
 app.post("/api/gemini/generate-script", async (req, res) => {
+  const { title, price, layout, size, location, yieldRate, pros, cons, style, platform } = req.body;
   try {
-    const { title, price, layout, size, location, yieldRate, pros, cons, style, platform } = req.body;
-
     const ai = getGeminiClient();
     if (!process.env.GEMINI_API_KEY) {
       // Fallback response for offline/fallback environment
@@ -142,29 +255,28 @@ app.post("/api/gemini/generate-script", async (req, res) => {
     const prompt = `
       You are B哥 (B-Ge), a famous real estate influencer. Generate a highly customized video script for the following property listing:
       
-      - TITLE: ${title}
-      - LOCATION: ${location}
-      - PRICE: ${price}
-      - LAYOUT & SIZE: ${layout}, ${size}
-      - YIELD: ${yieldRate}%
-      - PROS (優勢): ${Array.isArray(pros) ? pros.join(", ") : pros}
-      - CONS (致命伏位): ${Array.isArray(cons) ? cons.join(", ") : cons}
+      - TITLE: ${title || "精選優質日本房產"}
+      - LOCATION: ${location || "熱門日本精華段"}
+      - PRICE: ${price || "價格合理"}
+      - LAYOUT & SIZE: ${layout || "1LDK"}, ${size || "實用坪效高"}
+      - YIELD: ${yieldRate || "5.0"}%
+      - PROS (優勢): ${Array.isArray(pros) ? pros.join(", ") : (pros || "絕佳地段")}
+      - CONS (致命伏位): ${Array.isArray(cons) ? cons.join(", ") : (cons || "修繕積金較高")}
       
-      - SCRIPT STYLE: ${styleDescriptions[style as keyof typeof styleDescriptions] || style}
-      - TARGET PLATFORM: ${platformDescriptions[platform as keyof typeof platformDescriptions] || platform}
+      - SCRIPT STYLE: ${styleDescriptions[style as keyof typeof styleDescriptions] || style || "comedy"}
+      - TARGET PLATFORM: ${platformDescriptions[platform as keyof typeof platformDescriptions] || platform || "youtube-long"}
       
       Generate a scene-by-scene storyboard structure in JSON. Each scene should have:
       1. sceneName (e.g. "😂 黃金3秒開頭", "📍 核心賣點剖析", "⚠️ 伏位大踢爆", "💸 投資財務試算", "📢 引導私域行動")
-      2. narration (The actual spoken lines by B哥, written in fluent colloquial Cantonese or warm, humorous Traditional Chinese. Must fit the ${style} tone perfectly with catchy catchphrases like '哈囉大家，我係B哥', '唔使驚，B哥喺大廳!', '呢度個伏位真係...', '好啦，算帳時間!')
+      2. narration (The actual spoken lines by B哥, written in fluent colloquial Cantonese or warm, humorous Traditional Chinese. Must fit the style tone perfectly with catchy catchphrases like '哈囉大家，我係B哥', '唔使驚，B哥喺大廳!', '呢度個伏位真係...', '好啦，算帳時間!')
       3. visual (B-roll background visual ideas / camera direction)
       4. textOsd (Captions (OSD) to display on screen)
       5. durationSec (Estimated scene duration in seconds)
       
-      The prompt output must strictly be a JSON array of scenes matching the schema:
+      CRITICAL: Write extremely punchy, direct and short script lines. Keep each scene's narration to around 2 split, powerful sentences so it runs incredibly fast. Provide exactly 4 to 5 key storyboard scenes in total.
     `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+    const response = await callGeminiWithRetryAndFallback(ai, {
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -182,107 +294,173 @@ app.post("/api/gemini/generate-script", async (req, res) => {
             }
           }
         },
-        systemInstruction: "You are a professional video scriptwriter for property self-media. Write scripts that are practical, engaging, funny, and native to HK/Taiwan social media platforms."
+        systemInstruction: "You are a professional video scriptwriter for property self-media. Write scripts that are practical, engaging, funny, and native to HK/Taiwan social media platforms. Keep your response extremely brief, tidy and fast."
       }
     });
-
     const parsedScript = JSON.parse(response.text?.trim() || "[]");
     res.json(parsedScript);
   } catch (error: any) {
-    console.error("Error generating script with Gemini:", error);
-    res.status(500).json({ error: error.message || "Failed to generate script." });
+    console.warn("Script generation experienced error or timeout, running fail-safe local script generator:", error);
+    try {
+      const fallbackScript = getMockScript(title || "精選好房", style || "comedy", platform || "youtube-long");
+      res.json(fallbackScript);
+    } catch (fallbackError: any) {
+      console.error("Critical script fallback failure:", fallbackError);
+      res.status(500).json({ error: "Failed to generate script due to internal error." });
+    }
   }
 });
 
-// ...
-
-// Basic error handler
-
 function getMockParsedProperty(input: string): any {
-  const isOsaka = input.toLowerCase().includes("osaka") || input.includes("大阪");
-  const isHouse = input.includes("一戶建") || input.includes("一戸建て") || input.includes("別墅");
-
-  if (isHouse) {
-    return {
-      title: "🏡 名古屋/近郊 寧靜文教區 寬敞一戶建！三代同堂舒適首選",
-      priceJPY: 45000000,
-      priceHKD: 2250000,
-      location: "愛知県長久手市",
-      address: "愛知県長久手市丁子田",
-      layout: "4LDK (一戶建)",
-      sizeSqm: 120.5,
-      sizeTsubo: 36.4,
-      yearBuilt: 2018,
-      yieldRate: 4.5,
-      stationWalk: "Linimo '長久手古戰場站' 徒步 10 分鐘",
-      pros: [
-        "2018新築等級別墅，雙車位設計，太陽能板發電功能完備",
-        "周邊大型購物中心徒步即達",
-        "居住條件極其優良"
-      ],
-      cons: [
-        "無車家庭的靈活度會稍微受限",
-        "除草與外牆維保皆需自行處理或委外花費",
-        "租金回報期較長"
-      ],
-      summary: "想買嚟自住或者畀長輩度假？呢個一戶建包你滿意！空間大到打橫行，雖然投資回報無大阪咁狂，但勝在夠穩健舒服。",
-      imageUrl: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&q=80&w=600"
-    };
-  }
+  const cleanInput = input || "";
   
-  if (isOsaka) {
-    return {
-      title: "🔥 大阪難波商圈 穩賺民宿房！高達 8.4% 投報的高CP選擇",
-      priceJPY: 19800000,
-      priceHKD: 990000,
-      location: "大阪府中央区難波",
-      address: "大阪府中央區千日前2丁目-X-X",
-      layout: "1DK (民宿契)",
-      sizeSqm: 28.5,
-      sizeTsubo: 8.6,
-      yearBuilt: 2008,
-      yieldRate: 8.4,
-      stationWalk: "地下鐵 御堂筋線 '難波站' 徒步 4 分鐘",
-      pros: [
-        "位於熱門遊客商圈千日前，民宿執照現成，出租率極高",
-        "難波核心地段，徒步圈內即可到達心齋橋與道頓堀",
-        "管理維護費低，大阪物業管理效率成熟"
-      ],
-      cons: [
-        "室內格局偏小，如果是多人家庭入住會有擁擠感",
-        "臨近商業鬧區，夜晚街道稍微有些喧鬧噪音",
-        "築年數中等，未來折舊率比新樓高"
-      ],
-      summary: "B哥實話實說：呢個難波民宿盤簡直係投資狂熱者嘅恩物！難波徒步4分鐘係神級位置，8.4%嘅回報喺東京根本諗都唔使諗。雖然夜晚有啲鬧區噪音，但遊客來大阪就係要熱鬧，邊個會喺10點前瞓覺？如果你搵緊高現金流、唔介意樓齡比較中等，呢個直接執照現成嘅民宿絕對係極品！",
-      imageUrl: ""
-    };
+  // 1. Detect location signals
+  const isOsaka = cleanInput.toLowerCase().includes("osaka") || cleanInput.includes("大阪");
+  const isKyoto = cleanInput.toLowerCase().includes("kyoto") || cleanInput.includes("京都");
+  const isHouse = cleanInput.includes("一戶建") || cleanInput.includes("一戸建て") || cleanInput.includes("別墅") || cleanInput.includes("戶建") || cleanInput.includes("戸建");
+
+  // 2. Extract Price JPY
+  let priceJPY = 28000000; // sensible default
+  const priceMatch = cleanInput.match(/価格[\s：:]*([0-9,]+)\s*万/i) || 
+                     cleanInput.match(/([0-9,]+)\s*万円/i) || 
+                     cleanInput.match(/([0-9,.]+)\s*万/);
+  if (priceMatch) {
+    const val = parseFloat(priceMatch[1].replace(/,/g, ''));
+    if (val) priceJPY = val * 10000;
+  } else {
+    // Try absolute price if any
+    const priceAbsMatch = cleanInput.match(/(?:價格|価格|賃料)[\s：:]*([0-9,]{5,11})/);
+    if (priceAbsMatch) {
+      const val = parseFloat(priceAbsMatch[1].replace(/,/g, ''));
+      if (val) priceJPY = val;
+    }
   }
 
-  // Tokyo default
+  // 3. Calculated Price HKD
+  const priceHKD = Math.round(priceJPY * 0.05);
+
+  // 4. Extract Layout
+  let layout = "1LDK";
+  const layoutMatch = cleanInput.match(/間取り[\s：:]*([A-Za-z0-9+#]+)/) || 
+                      cleanInput.match(/間取[\s：:]*([A-Za-z0-9+#]+)/) ||
+                      cleanInput.match(/([1-4]\s*[LDKR]+|1R|1K|2K|3K)/i);
+  if (layoutMatch) {
+    layout = layoutMatch[1].trim();
+  } else if (isHouse) {
+    layout = "4LDK (一戶建)";
+  }
+
+  // 5. Extract Size SQM
+  let sizeSqm = 35.5;
+  const sizeMatch = cleanInput.match(/(?:専有面積|建物面積|床面積|面積)[\s：:]*([0-9,.]+)\s*(?:m2|㎡|平米)/i) || 
+                    cleanInput.match(/([0-9,.]+)\s*(?:m2|㎡|平米)/i);
+  if (sizeMatch) {
+    sizeSqm = parseFloat(sizeMatch[1]);
+  }
+
+  // 6. Calculate Size Tsubo
+  const sizeTsubo = Number((sizeSqm * 0.3025).toFixed(1));
+
+  // 7. Extract Year Built
+  let yearBuilt = 2012;
+  const yearMatch = cleanInput.match(/(?:築年月|築|建築)[\s：:]*(?:平成|昭和|令和)?\s*(\d{4})年/) || 
+                    cleanInput.match(/(\d{4})年/);
+  if (yearMatch) {
+    yearBuilt = parseInt(yearMatch[1]);
+  } else {
+    const ageMatch = cleanInput.match(/築\s*(\d+)\s*年/);
+    if (ageMatch) {
+      const age = parseInt(ageMatch[1]);
+      if (age < 120 && age > 0) {
+        yearBuilt = 2026 - age;
+      }
+    }
+  }
+
+  // 8. Extract Address & Location
+  let address = isOsaka ? "大阪府中央區" : isKyoto ? "京都府京都市" : "東京都港區";
+  let location = isOsaka ? "大阪府中央區" : isKyoto ? "京都府" : "東京都港區";
+  
+  const addressMatch = cleanInput.match(/(?:所在地|住所)[\s：:]*([^\n\r]+)/);
+  if (addressMatch) {
+    address = addressMatch[1].trim();
+    const locMatch = address.match(/^.*?[都道府県](?:.*?區|.*?区|.*?市|.*?町|.*?村)?/);
+    if (locMatch) {
+      location = locMatch[0];
+    } else {
+      location = address.slice(0, 8);
+    }
+  }
+
+  // 9. Extract Station Walk
+  let stationWalk = "地鐵沿線 徒步圈內";
+  const stationMatch = cleanInput.match(/(?:交通|沿線)[\s：:]*([^\n\r]+)/) || 
+                       cleanInput.match(/([^\n\r]*?駅[^\n\r]*?徒歩\s*\d+\s*分)/) ||
+                       cleanInput.match(/([^\n\r]*?駅[^\n\r]*?\d+\s*分)/);
+  if (stationMatch) {
+    stationWalk = stationMatch[1].trim();
+  }
+
+  // 10. Extract Yield Rate
+  let yieldRate = 5.2;
+  const yieldMatch = cleanInput.match(/(?:利回り|投報率|收益率|返還率)[\s：:]*([0-9.]+)\s*%/i) || 
+                     cleanInput.match(/([0-9.]+)\s*%/);
+  if (yieldMatch) {
+    yieldRate = parseFloat(yieldMatch[1]);
+  } else {
+    if (isOsaka) yieldRate = 8.4;
+    else if (isHouse) yieldRate = 4.5;
+    else yieldRate = 5.2;
+  }
+
+  // 11. Catchy custom B哥 style title
+  const priceWans = Math.round(priceJPY / 10000);
+  const locationShort = location.replace(/東京都|大阪府|京都府/, "");
+  const title = `🔥 ${locationShort || "日本精選"} ${layout} 實用性極高特色盤（約 ${priceWans.toLocaleString()} 萬円）`;
+
+  // 12. Dynamic Pros, Cons & Summary based on detected properties
+  const pros = [
+    `位於 ${locationShort || "熱門區域"} 核心地帶，${stationWalk}，交通生活機能好`,
+    `格局為 ${layout}，專有面積達 ${sizeSqm} m²，整體格局極佳`,
+    `租賃剛需旺盛，資產折舊合理，保值抗通脹能力優良`
+  ];
+
+  const cons = [
+    `築年為 ${yearBuilt} 年，購買時需合理考量長期折舊`,
+    `管理維護費與大樓修繕基金等維護成本需計入投資帳單`,
+  ];
+  if (isHouse) {
+    cons.push("無大樓物業統一管理，需自行維持外牆與綠化");
+  } else {
+    cons.push("高樓層臨近海風或低樓層採光需留意空調除濕");
+  }
+
+  const priceFriendlyHKD = `${(priceHKD / 10000).toFixed(0)}萬`;
+  const summary = `B哥實話實說：呢個位於${locationShort}嘅盤，售價大約 ${priceWans}萬円（折合大約港幣 ${priceFriendlyHKD} ），配上 ${yieldRate}% 回報真係算唔錯！雖然樓齡到咗${2026 - yearBuilt}年，但勝在位置靚，租客源源不絕。對低門檻、想安全穩定收租收息嘅老鐵嚟講，呢個直頭係好車！`;
+
+  const imageUrl = isOsaka 
+    ? "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&q=80&w=600"
+    : isHouse
+    ? "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&q=80&w=600"
+    : "https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&q=80&w=600";
+
   return {
-    title: "✨ 東京港區芝浦 海景1LDK！高淨值白領最愛，山手線沿線神盤",
-    priceJPY: 49800000,
-    priceHKD: 2490000,
-    location: "東京都港区芝浦",
-    address: "東京都港區芝浦3-XXX",
-    layout: "1LDK",
-    sizeSqm: 42.1,
-    sizeTsubo: 12.7,
-    yearBuilt: 2015,
-    yieldRate: 5.2,
-    stationWalk: "JR 山手線 '田町站' 徒步 7 分鐘",
-    pros: [
-      "港區核心黃金地段，租客全屬東京高收入白領，幾乎零空置期",
-      "2015年高標準抗震建造，外觀大氣奢華，物業管理極度完善",
-      "高樓層通風、採光極佳，可眺望部分運河景觀"
-    ],
-    cons: [
-      "港區物價與管理費高昂，淨投報率會被管理成本壓縮",
-      "臨近港灣，梅雨或颱風季節海風濕度較高，空調除濕要常開",
-      "售價較高，適合預算充裕且追求高資產保值性的買家"
-    ],
-    summary: "B哥實話實說：港區芝浦一直係東京白領嘅心頭好。雖然5.2%投報看似唔算頂級，但港區嘅保值能力係『神級』。臨海濕氣雖然重，但物業管理好到你唔信，而且開窗有運河景，帶女仔返黎直接加100分。如果你預算夠、追求穩健、想喺東京買個優雅又抗通脹嘅心水盤，呢個精緻1LDK閉眼買就係了！",
-    imageUrl: "https://images.unsplash.com/photo-1503899036084-c55cdd92da26?auto=format&fit=crop&q=80&w=600"
+    title,
+    priceJPY,
+    priceHKD,
+    location,
+    address,
+    layout,
+    sizeSqm,
+    sizeTsubo,
+    yearBuilt,
+    yieldRate,
+    stationWalk,
+    pros,
+    cons,
+    summary,
+    imageUrl,
+    propertyType: isHouse ? "house" : "apartment"
   };
 }
 

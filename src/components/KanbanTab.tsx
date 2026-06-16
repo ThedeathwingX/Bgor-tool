@@ -297,7 +297,7 @@ export default function KanbanTab({
                   📢 B哥實話實說 (高情商吐槽短評)
                 </h4>
                 <p className="text-stone-600 font-medium italic leading-relaxed text-[10.5px] mt-1.5 pl-1 border-l-2 border-[#d4af37]">
-                  "{selectedListing.summary}"
+                  "{selectedListing.summary ? selectedListing.summary.replace(/^(📢\s*)?B哥(?:實話實說|真心話大爆料|真心話|實話實說：)?[\s：:]*/g, '').trim() : ''}"
                 </p>
               </div>
 
