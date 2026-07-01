@@ -898,30 +898,28 @@ export default function OverviewTab({
             <div className="border-t border-stone-100 pt-4 space-y-2">
               <h3 className="text-xs font-bold text-stone-850 flex items-center gap-1.5">
                 <RefreshCw className="w-4 h-4 text-red-500" />
-                <span>初始化面板狀態</span>
+                <span>初始化/清空工作站</span>
               </h3>
               
               {isResetConfirmOpen ? (
                 <div className="bg-red-50 p-3 border border-red-200 rounded-lg text-[10px] text-red-700 space-y-2 animate-fadeIn">
-                  <p className="font-semibold leading-relaxed font-sans">⚠️ 確定清除嗎？這將永久刪除您所有自訂的物件與批註留言，回復至出廠預設示範數據。</p>
+                  <p className="font-semibold leading-relaxed font-sans">⚠️ 確定清除嗎？這將永久清空所有自訂的房源物件、歷史對話紀錄、以及交流區留言，變更為全新的空白工作區。</p>
                   <div className="flex gap-1.5">
                     <button
                       onClick={() => {
                         onRestoreBackup({
-                          listings: INITIAL_LISTINGS,
-                          comments: [
-                            { id: "msg-1", text: "昨天的大阪民宿盤腳本已經寫好，請你今晚開始剪，另外開頭記得幫我加個爆款音樂。", author: "B哥", timestamp: Date.now() - 86400000 },
-                            { id: "msg-2", text: "收到！我會配上比較輕快的 Lofi 節奏。背景影片素材我會用那套現成的模板嗎？", author: "剪片師", timestamp: Date.now() - 82400000 },
-                            { id: "msg-3", text: "對，就用上禮拜那套京都風格的片頭，片尾加上我們的微信 QR code。", author: "B哥", timestamp: Date.now() - 40000000 }
-                          ],
+                          listings: [],
+                          comments: [],
                           exchangeRate: 0.05
                         });
-                        setSuccessMsg('✨ 已成功恢復出廠預設示範狀態！');
+                        // Clear the knowledge tab local storage as well
+                        localStorage.removeItem("bge_forum_conversations_v3");
+                        setSuccessMsg('✨ 已成功清空所有數據，為您準備了全新的空白工作空間！');
                         setIsResetConfirmOpen(false);
                       }}
                       className="flex-1 py-1.5 bg-red-650 hover:bg-red-700 text-white font-bold rounded cursor-pointer text-[9px] transition-colors font-sans"
                     >
-                      是的，確定清除並恢復
+                      是的，確定全部清空
                     </button>
                     <button
                       onClick={() => setIsResetConfirmOpen(false)}
@@ -937,7 +935,7 @@ export default function OverviewTab({
                   className="w-full py-2 px-3 border border-red-200 hover:bg-red-50 text-red-600 font-semibold rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer font-sans"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
-                  <span>恢復出廠預設狀態</span>
+                  <span>清空所有工作站數據</span>
                 </button>
               )}
             </div>

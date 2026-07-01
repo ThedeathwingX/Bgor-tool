@@ -142,8 +142,6 @@ const ARCHIVE_DATA: ArchiveItem[] = [
     visualMetric: { label: "點擊率 CTR", value: "達 8.5%", color: "text-emerald-500" },
     difficulty: "🌟🌟🌟"
   },
-
-  // Floor 3: Safe Taxation & Anti-Trap
   {
     id: "f3-tx-1",
     category: "tax-danger",
@@ -207,41 +205,7 @@ export interface ForumComment {
   bBroCritique?: string; // B-bro's custom sass comment
 }
 
-const SEEDED_COMMENTS: ForumComment[] = [
-  {
-    id: "comment-1",
-    topicId: "f3-tx-2",
-    author: "Alvin Lau",
-    role: "香港買家",
-    content: "SUUMO上睇到一間京都町屋好精美，離清水道都好近，開價得800萬日元！中介真係冇提過再建築不可....好彩睇到B哥說明，不然我簽落就一世砸手！",
-    timestamp: Date.now() - 172800000,
-    likes: 18,
-    dislikes: 0,
-    bBroCritique: "B哥點評：800萬日圓買京都清水道？話你聽！呢個價位買間正常町屋都只能買到一塊大門板！中介老實你就奇啦，佢唔哄你落搭份佣點到手？切記，接盤容易，丟盤難，留返啲錢去食碗拉麵好過啦！"
-  },
-  {
-    id: "comment-2",
-    topicId: "f2-me-1",
-    author: "小白剪輯",
-    role: "自媒體剪片師",
-    content: "我的YouTube房產頻道自從改成了【黃金3秒】＋【B哥式吐槽】，點擊率從之前的 1.2% 直接拉到了 7.5%！粉絲留言也活躍了很多！實在大有用處！",
-    timestamp: Date.now() - 86450000,
-    likes: 24,
-    dislikes: 1,
-    bBroCritique: "B哥點評：有進步！孺子可教也！以前一上嚟就講『大家好，歡迎收睇XX地產』，簡直係安眠藥。而家識得痛點暴扣，觀眾滑走就怪。繼續精進封面配色，好戲喺後頭！"
-  },
-  {
-    id: "comment-3",
-    topicId: "f1-re-1",
-    author: "田中桑",
-    role: "日本物業代理",
-    content: "確實，日本法律規定的專有面積（內法）是牆壁淨尺寸，陽台不計稅。許多中國買家不理解，常常抱怨露台堆太滿被投訴。感謝B哥對日本法律常識的分享！",
-    timestamp: Date.now() - 40000000,
-    likes: 15,
-    dislikes: 2,
-    bBroCritique: "B哥點評：田中桑說得對！仲有啊，有啲同胞諗住買完陽台可以用亞克力玻璃封咗佢做多間房？喺日本咁樣犯法兼全棟樓舉報你，等警察上門封屋外！唔好帶着習慣去日本，規矩大於一切！"
-  }
-];
+const SEEDED_COMMENTS: ForumComment[] = [];
 
 export default function KnowledgeTab() {
   // 3D Perspective options
@@ -260,7 +224,7 @@ export default function KnowledgeTab() {
 
   // Forum States
   const [comments, setComments] = useState<ForumComment[]>(() => {
-    const saved = localStorage.getItem("bge_forum_conversations");
+    const saved = localStorage.getItem("bge_forum_conversations_v3");
     return saved ? JSON.parse(saved) : SEEDED_COMMENTS;
   });
   const [newCommentText, setNewCommentText] = useState("");
@@ -318,7 +282,7 @@ export default function KnowledgeTab() {
 
   // Persist Comments
   useEffect(() => {
-    localStorage.setItem("bge_forum_conversations", JSON.stringify(comments));
+    localStorage.setItem("bge_forum_conversations_v3", JSON.stringify(comments));
   }, [comments]);
 
   // Handle Hash Copy

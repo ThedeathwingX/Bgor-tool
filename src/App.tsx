@@ -46,7 +46,7 @@ export default function App() {
 
   // Multi-column global listings state
   const [listings, setListings] = useState<Listing[]>(() => {
-    const saved = localStorage.getItem("bge_listings_v2");
+    const saved = localStorage.getItem("bge_listings_v3");
     if (saved) {
       try {
         const parsed = JSON.parse(saved) as Listing[];
@@ -83,24 +83,20 @@ export default function App() {
 
   // Lifted comments state
   const [comments, setComments] = useState<any[]>(() => {
-    const saved = localStorage.getItem("bge_comments");
+    const saved = localStorage.getItem("bge_comments_v3");
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { /* ignore */ }
     }
-    return [
-      { id: "msg-1", text: "昨天的大阪民宿盤腳本已經寫好，請你今晚開始剪，另外開頭記得幫我加個爆款音樂。", author: "B哥", timestamp: Date.now() - 86400000 },
-      { id: "msg-2", text: "收到！我會配上比較輕快的 Lofi 節奏。背景影片素材我會用那套現成的模板嗎？", author: "剪片師", timestamp: Date.now() - 82400000 },
-      { id: "msg-3", text: "對，就用上禮拜那套京都風格的片頭，片尾加上我們的微信 QR code。", author: "B哥", timestamp: Date.now() - 40000000 }
-    ];
+    return [];
   });
 
   // Sync to database
   useEffect(() => {
-    localStorage.setItem("bge_listings_v2", JSON.stringify(listings));
+    localStorage.setItem("bge_listings_v3", JSON.stringify(listings));
   }, [listings]);
 
   useEffect(() => {
-    localStorage.setItem("bge_comments", JSON.stringify(comments));
+    localStorage.setItem("bge_comments_v3", JSON.stringify(comments));
   }, [comments]);
 
   // Handle local storage backup restoration
